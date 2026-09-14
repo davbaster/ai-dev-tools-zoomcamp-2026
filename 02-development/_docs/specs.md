@@ -2,7 +2,7 @@
 
 ## 1. Product summary
 
-Build a responsive web application for one restaurant location. It enables hosts, servers, and managers to manage walk-in guests, reservations, individual tables, and daily operational reporting.
+HostBoard is a responsive web application for one restaurant location. It enables hosts, servers, and managers to manage walk-in guests, reservations, individual tables, and daily operational reporting.
 
 Customers do not interact with the application. Staff enter all guest and reservation information, and contact guests outside the system.
 
