@@ -4,9 +4,17 @@ from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
+from backend.database import load_state, save_state
 
 app = FastAPI(title="HostBoard API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class EntryIn(BaseModel):
@@ -42,9 +50,8 @@ def now() -> str:
     return datetime.now().isoformat(timespec="seconds")
 
 
-def reset_store() -> None:
-    global STORE
-    STORE = {
+def default_store() -> dict:
+    return {
         "staff": [
             {"id": "u1", "name": "Marina Cruz", "role": "host", "active": True},
             {"id": "u2", "name": "Evan Lee", "role": "server", "active": True},
@@ -58,7 +65,23 @@ def reset_store() -> None:
     }
 
 
-reset_store()
+def reset_store() -> None:
+    global STORE
+    STORE = default_store()
+    save_state(STORE)
+
+
+STORE = load_state(default_store())
+
+
+@app.middleware("http")
+async def persist_state(request, call_next):
+    global STORE
+    STORE = load_state(STORE)
+    response = await call_next(request)
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and response.status_code < 400:
+        save_state(STORE)
+    return response
 
 
 def role(x_staff_role: str | None = Header(default=None)) -> str:

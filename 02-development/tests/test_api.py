@@ -58,3 +58,10 @@ def test_manager_admin_and_daily_report():
     report = manager.get("/reports/daily", params={"date": "2026-09-14"})
     assert report.status_code == 200
     assert {"average_wait_minutes", "cancellations", "no_shows", "table_turnover", "covers_served"} <= report.json().keys()
+
+
+def test_created_entry_survives_a_new_client_request():
+    client = client_for()
+    created = client.post("/entries/walk-ins", json=walkin()).json()
+    later_client = TestClient(app, headers={"X-Staff-Role": "host"})
+    assert later_client.get("/entries", params={"q": "nguyen"}).json()[0]["id"] == created["id"]

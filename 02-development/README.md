@@ -10,9 +10,19 @@ HostBoard is a restaurant front-of-house waitlist manager for a single location.
 
 The current version is a frontend prototype with realistic mocked data. No real accounts, database, or guest notifications are connected yet.
 
-## Start the prototype
+## Commands
 
-From `02-development`, start a static web server for the project root:
+Run every command from `02-development`.
+
+### Install backend dependencies
+
+```powershell
+uv sync
+```
+
+### Start the frontend
+
+Start a static web server for the project root:
 
 ```powershell
 npx --yes serve .
@@ -25,6 +35,31 @@ The `frontend/` folder is the application entry point. It uses the local,
 asynchronous mock API, so no FastAPI server, database, or staff account is
 needed to try the prototype. Use the profile control at the bottom of the
 sidebar to preview the server and manager views.
+
+### Start the backend
+
+In a second terminal:
+
+```powershell
+uv run uvicorn backend.app:app --reload
+```
+
+The API runs at `http://127.0.0.1:8000`; interactive API documentation is at
+`http://127.0.0.1:8000/docs`. By default, the application persists its current
+mock domain data in `hostboard.db` through SQLAlchemy. Set `DATABASE_URL` to a
+different SQLAlchemy-supported database URL when moving to another database.
+
+### Run the tests
+
+```powershell
+uv run pytest
+```
+
+To run only the API tests:
+
+```powershell
+uv run pytest tests/test_api.py
+```
 
 ## Main flow to try
 

@@ -34,6 +34,7 @@ pip-wheel-metadata/
 *.log
 db.sqlite3
 db.sqlite3-journal
+hostboard.db
 media/
 staticfiles/
 
