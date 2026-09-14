@@ -12,13 +12,19 @@ The current version is a frontend prototype with realistic mocked data. No real 
 
 ## Start the prototype
 
-From `02-development`, start a static web server for the frontend:
+From `02-development`, start a static web server for the project root:
 
 ```powershell
-npx --yes serve frontent
+npx --yes serve .
 ```
 
-Open the local URL printed by the command. The interface starts in the host view. Use the profile control at the bottom of the sidebar to preview the server and manager views.
+Open the printed local URL with `/frontend/` appended, for example
+`http://localhost:3000/frontend/`. The interface starts in the host view.
+
+The `frontend/` folder is the application entry point. It uses the local,
+asynchronous mock API, so no FastAPI server, database, or staff account is
+needed to try the prototype. Use the profile control at the bottom of the
+sidebar to preview the server and manager views.
 
 ## Main flow to try
 
