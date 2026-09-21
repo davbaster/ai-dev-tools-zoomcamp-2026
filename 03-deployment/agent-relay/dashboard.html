@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Agent Relay</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+    input, textarea, button { font: inherit; margin: .25rem 0; padding: .4rem; }
+    input, textarea { width: min(100%, 50rem); } textarea { min-height: 5rem; }
+    button { cursor: pointer; } table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    td, th { border-bottom: 1px solid #8886; padding: .45rem; text-align: left; vertical-align: top; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .muted { opacity: .7; } #message { min-height: 1.5em; }
+  </style>
+</head>
+<body>
+  <h1>Agent Relay v2</h1>
+  <p class="muted">Local dashboard. Credentials stay in this browser and are sent only to this relay.</p>
+  <label>Agent tokens (one per line)<br><textarea id="tokens" rows="3" autocomplete="off" placeholder="agt_…"></textarea></label>
+  <br><button id="save">Use tokens</button> <button id="clear">Clear</button>
+  <p id="message" role="status"></p>
+  <section><h2>Agents</h2><button id="refresh">Refresh</button><div id="agents"></div></section>
+  <section><h2>Tasks for configured agents</h2><div id="tasks"></div></section>
+  <script>
+    const tokensInput = document.querySelector('#tokens'), message = document.querySelector('#message');
+    const savedTokens = JSON.parse(sessionStorage.getItem('relay-tokens') || '[]');
+    tokensInput.value = savedTokens.join('\n') || sessionStorage.getItem('relay-token') || '';
+    const tokens = () => [...new Set(tokensInput.value.split(/\s+/).map(value => value.trim()).filter(Boolean))];
+    const auth = token => token ? {'Authorization': `Bearer ${token}`} : {};
+    const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    async function api(path, token) { const r = await fetch(path, {headers: auth(token)}); const data = r.status === 204 ? null : await r.json(); if (!r.ok) throw new Error(data?.error?.message || 'Request failed'); return data; }
+    function table(headers, rows) { return `<table><thead><tr>${headers.map(esc).map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(row=>`<tr>${row.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`; }
+    async function refresh() { try {
+      const configuredTokens = tokens();
+      if (!configuredTokens.length) throw new Error('Enter at least one agent token.');
+      const views = await Promise.all(configuredTokens.map(async token => {
+        const [agents, sent, received] = await Promise.all([
+          api('/api/v1/agents?limit=100', token),
+          api('/api/v1/tasks?direction=sent&limit=100', token),
+          api('/api/v1/tasks?direction=received&limit=100', token),
+        ]);
+        return {token, agents: agents.items, tasks: [...sent.items, ...received.items]};
+      }));
+      const agentsById = new Map(views.flatMap(view => view.agents).map(agent => [agent.agent_id, agent]));
+      document.querySelector('#agents').innerHTML = table(['ID','Name','Description','Last seen'], [...agentsById.values()].map(a=>[a.agent_id,a.name,a.description,a.last_seen_at]));
+      const tasksById = new Map();
+      views.forEach(view => view.tasks.forEach(task => { if (!tasksById.has(task.task_id)) tasksById.set(task.task_id, {...task, authToken: view.token}); }));
+      const taskItems = [...tasksById.values()];
+      const rows = await Promise.all(taskItems.map(async t => { const attempts = await api(`/api/v1/tasks/${encodeURIComponent(t.task_id)}/attempts`, t.authToken); const history = attempts.items.map(a => `${a.attempt}:${a.outcome}${a.worker_id ? ` (${a.worker_id})` : ''}`).join(', '); return [t.task_id, `${t.from} -> ${t.to}`, t.status, t.input, t.output || t.error, history]; }));
+      document.querySelector('#tasks').innerHTML = table(['ID','Route','Status','Input','Output / error','Delivery history'], rows);
+      message.textContent = `Updated ${new Date().toLocaleTimeString()} from ${configuredTokens.length} agent token(s)`;
+    } catch (e) { message.textContent = e.message; } }
+    document.querySelector('#save').onclick = () => { const configuredTokens = tokens(); sessionStorage.setItem('relay-tokens', JSON.stringify(configuredTokens)); sessionStorage.removeItem('relay-token'); refresh(); };
+    document.querySelector('#clear').onclick = () => { tokensInput.value = ''; sessionStorage.removeItem('relay-tokens'); sessionStorage.removeItem('relay-token'); document.querySelector('#agents').textContent = ''; document.querySelector('#tasks').textContent = ''; message.textContent = ''; };
+    document.querySelector('#refresh').onclick = refresh; if (tokens().length) refresh();
+  </script>
+</body></html>
